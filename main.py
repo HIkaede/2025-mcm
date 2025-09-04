@@ -6,12 +6,13 @@ debug = 0
 def simulate(missiles, smokes, time, step):
     results = {}
 
-    for i, missile in enumerate(missiles):
+    for i in range(len(missiles)):
         results[f"missile_{i}"] = {
             "total_blocked_time": 0.0,
             "blocked_intervals": [],
             "blocked_status": [],
         }
+
     if debug:
         f = open("debug.log", "w")
 
@@ -75,9 +76,18 @@ m2 = missile(point(19600, 600, 2100))
 m3 = missile(point(18000, -600, 1900))
 
 
+fy_pos = [
+    point(17800, 0, 1800),
+    point(12000, 1400, 1400),
+    point(6000, -3000, 700),
+    point(11000, 2000, 1800),
+    point(13000, -2000, 1300),
+]
+
+
 def problem1():
     missiles = [m1]
-    fy1 = drone(point(17800, 0, 1800), point(-120, 0, 0))
+    fy1 = drone(fy_pos[0], point(-120, 0, 0))
     smokes = []
     smokes.append(fy1.drop_smoke(1.5, 3.6))
     results = simulate(missiles, smokes, 30, 0.01)
@@ -85,6 +95,65 @@ def problem1():
     print("问题1结果:")
     print(f"M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f} 秒")
     print(f"遮挡时间段: {results['missile_0']['blocked_intervals']}")
+
+
+def problem2(v, t, delay):
+    missiles = [m1]
+    fy1 = drone(fy_pos[0], v)
+    smokes = []
+    smokes.append(fy1.drop_smoke(t, delay))
+    results = simulate(missiles, smokes, 50, 0.01)
+
+    print("问题2结果:")
+    print(f"M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f} 秒")
+    print(f"遮挡时间段: {results['missile_0']['blocked_intervals']}")
+
+
+def problem3(v, t, delay):
+    missiles = [m1]
+    fy1 = drone(fy_pos[0], v)
+    smokes = []
+    for i in range(3):
+        smokes.append(fy1.drop_smoke(t[i], delay[i]))
+    results = simulate(missiles, smokes, 90, 0.01)
+
+    print("问题3结果:")
+    print(f"M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f} 秒")
+    print(f"遮挡时间段: {results['missile_0']['blocked_intervals']}")
+
+
+def problem4(v, t, delay):
+    missiles = [m1]
+    fy = []
+    for i in range(3):
+        fy.append(drone(fy_pos[i], v[i]))
+    smokes = []
+    for i in range(3):
+        smokes.append(fy[i].drop_smoke(t[i], delay[i]))
+    results = simulate(missiles, smokes, 90, 0.01)
+
+    print("问题4结果:")
+    print(f"M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f} 秒")
+    print(f"遮挡时间段: {results['missile_0']['blocked_intervals']}")
+
+
+def problem5(v, t, delay):
+    missiles = [m1, m2, m3]
+    fy = []
+    for i in range(5):
+        fy.append(drone(fy_pos[i], v[i]))
+    smokes = []
+    for i in range(3):
+        smokes.append(fy[i].drop_smoke(t[i], delay[i]))
+    results = simulate(missiles, smokes, 90, 0.01)
+
+    print("问题5结果:")
+    print(f"M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f} 秒")
+    print(f"遮挡时间段: {results['missile_0']['blocked_intervals']}")
+    print(f"M2被遮挡总时间: {results['missile_1']['total_blocked_time']:.2f} 秒")
+    print(f"遮挡时间段: {results['missile_1']['blocked_intervals']}")
+    print(f"M3被遮挡总时间: {results['missile_2']['total_blocked_time']:.2f} 秒")
+    print(f"遮挡时间段: {results['missile_2']['blocked_intervals']}")
 
 
 def main():
