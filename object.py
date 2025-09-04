@@ -1,6 +1,39 @@
 import math
 
 
+def farthest_point_on_circle(center, radius, normal, line_point, line_dir):
+    """找到圆周上距离给定直线最远的点"""
+    # 1. 计算直线到圆心的最近点
+    pc = center - line_point
+    line_dir_normalized = line_dir.normalize()
+    t = pc.dot(line_dir_normalized)
+    closest_on_line = line_point + line_dir_normalized * t
+
+    # 2. 从最近点指向圆心的向量（远离直线方向）
+    away_from_line = center - closest_on_line
+
+    # 3. 如果圆心在直线上，选择任意垂直方向
+    if away_from_line.length() < 1e-10:
+        temp = point(1, 0, 0) if abs(line_dir_normalized.x) < 0.9 else point(0, 1, 0)
+        away_from_line = line_dir_normalized.cross(temp)
+
+    # 4. 将远离向量投影到圆所在平面
+    normal_normalized = normal.normalize()
+    projection_on_normal = away_from_line.dot(normal_normalized)
+    away_in_plane = away_from_line - normal_normalized * projection_on_normal
+
+    # 5. 如果投影后向量为零，在圆平面内选择任意方向
+    if away_in_plane.length() < 1e-10:
+        temp = point(1, 0, 0) if abs(normal_normalized.x) < 0.9 else point(0, 1, 0)
+        away_in_plane = normal_normalized.cross(temp)
+
+    # 6. 归一化并缩放到圆周
+    direction = away_in_plane.normalize()
+    farthest_point = center + direction * radius
+
+    return farthest_point
+
+
 class point:
     def __init__(self, x=0, y=0, z=0):
         self.x = x
@@ -35,12 +68,14 @@ class point:
         return math.sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
 
     def normalize(self):
+        """向量归一化"""
         l = self.length()
         if l == 0:
             return point(0, 0, 0)
         return point(self.x / l, self.y / l, self.z / l)
 
     def dist2line(self, a, b):
+        """计算点线距"""
         ab = b - a
         ap = self - a
         ab2 = ab.dot(ab)
@@ -48,58 +83,24 @@ class point:
         proj = a + ab * t
         return self.dist(proj)
 
-    def farthest_point_on_circle(self, center, radius, normal, line_point, line_dir):
-        """找到圆周上距离给定直线最远的点"""
-        # 1. 计算直线到圆心的最近点
-        pc = center - line_point
-        line_dir_normalized = line_dir.normalize()
-        t = pc.dot(line_dir_normalized)
-        closest_on_line = line_point + line_dir_normalized * t
 
-        # 2. 从最近点指向圆心的向量（远离直线方向）
-        away_from_line = center - closest_on_line
-
-        # 3. 如果圆心在直线上，选择任意垂直方向
-        if away_from_line.length() < 1e-10:
-            temp = (
-                point(1, 0, 0) if abs(line_dir_normalized.x) < 0.9 else point(0, 1, 0)
-            )
-            away_from_line = line_dir_normalized.cross(temp)
-
-        # 4. 将远离向量投影到圆所在平面
-        normal_normalized = normal.normalize()
-        projection_on_normal = away_from_line.dot(normal_normalized)
-        away_in_plane = away_from_line - normal_normalized * projection_on_normal
-
-        # 5. 如果投影后向量为零，在圆平面内选择任意方向
-        if away_in_plane.length() < 1e-10:
-            temp = point(1, 0, 0) if abs(normal_normalized.x) < 0.9 else point(0, 1, 0)
-            away_in_plane = normal_normalized.cross(temp)
-
-        # 6. 归一化并缩放到圆周
-        direction = away_in_plane.normalize()
-        farthest_point = center + direction * radius
-
-        return farthest_point
-
-
-class missile(object):
+class missile(point):
     def __init__(self, pos):
-        self.pos = pos
-        self.v = pos.normalize() * -300
+        super().__init__(pos.x, pos.y, pos.z)
+        self.v = self.normalize() * -300
 
     def getpos(self, t):
         return point(
-            self.pos.x + self.v.x * t,
-            self.pos.y + self.v.y * t,
-            self.pos.z + self.v.z * t,
+            self.x + self.v.x * t,
+            self.y + self.v.y * t,
+            self.z + self.v.z * t,
         )
 
     def is_blocked(self, t, smoke_list):
         """判断导弹在时刻t是否被烟幕遮挡"""
         missile_pos = self.getpos(t)
-        target_center = point(0, 200, 5)  # 真目标中心
-        target_radius = 7.0  # 目标半径
+        target_center = point(0, 200, 5)  # 真目标
+        target_radius = 7.0
 
         bottom_center = point(0, 200, 0)
         top_center = point(0, 200, 10)
@@ -116,12 +117,9 @@ class missile(object):
             # 检查烟幕是否在导弹和目标之间
             missile_to_target_dist = missile_pos.dist(target_center)
             smoke_to_target_dist = smoke_pos.dist(target_center)
-
-            # 烟幕必须在导弹和目标之间
             if smoke_to_target_dist > missile_to_target_dist:
                 continue
 
-            # 检查上下底面是否被遮蔽
             bottom_blocked = self._is_circle_blocked(
                 missile_pos, smoke_pos, bottom_center, target_radius, normal_z
             )
@@ -129,7 +127,6 @@ class missile(object):
                 missile_pos, smoke_pos, top_center, target_radius, normal_z
             )
 
-            # 如果上下底面都被遮蔽，认为目标被完全遮蔽
             if bottom_blocked and top_blocked:
                 return True
 
@@ -138,26 +135,20 @@ class missile(object):
     def _is_circle_blocked(
         self, missile_pos, smoke_pos, circle_center, circle_radius, normal
     ):
-        """使用最远点算法判断圆是否被烟幕遮蔽"""
-        # 导弹到烟幕的连线方向
+        """使用最远点判断圆是否被烟幕遮蔽"""
         missile_to_smoke = smoke_pos - missile_pos
-
-        # 在圆周上找到距离导弹-烟幕连线最远的点
-        farthest_point = missile_pos.farthest_point_on_circle(
+        farthest_point = farthest_point_on_circle(
             circle_center, circle_radius, normal, missile_pos, missile_to_smoke
         )
-
-        # 计算最远点到导弹-烟幕连线的距离
+        # 计算最远点到导弹-烟幕中心连线的距离
         dist_to_line = smoke_pos.dist2line(missile_pos, farthest_point)
-
-        # 如果距离小于烟幕半径，则被遮蔽
         smoke_radius = 10.0
         return dist_to_line <= smoke_radius
 
 
-class smoke(object):
+class smoke(point):
     def __init__(self, pos, start):
-        self.pos = pos
+        super().__init__(pos.x, pos.y, pos.z)
         self.start = start
 
     def is_active(self, t):
@@ -166,19 +157,19 @@ class smoke(object):
     def getpos(self, t):
         if not self.is_active(t):
             return None
-        return point(self.pos.x, self.pos.y, self.pos.z - 3 * (t - self.start))
+        return point(self.x, self.y, self.z - 3 * (t - self.start))
 
 
-class drone(object):
+class drone(point):
     def __init__(self, pos, v):
-        self.pos = pos
+        super().__init__(pos.x, pos.y, pos.z)
         self.v = v
 
     def getpos(self, t):
         return point(
-            self.pos.x + self.v.x * t,
-            self.pos.y + self.v.y * t,
-            self.pos.z,
+            self.x + self.v.x * t,
+            self.y + self.v.y * t,
+            self.z,
         )
 
     def drop_smoke(self, t, delay):
