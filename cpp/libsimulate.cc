@@ -3,6 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <fstream>
 
 struct Point
 {
@@ -199,13 +200,20 @@ std::vector<SimulationResult> simulate_cpp(
     const std::vector<Missile> &missiles,
     const std::vector<Smoke> &smokes,
     double time,
-    double step)
+    double step,
+    bool debug)
 {
     std::vector<SimulationResult> results(missiles.size());
 
     double current_time = 0.0;
     std::vector<std::vector<bool>> blocked_status(missiles.size());
     std::vector<std::vector<double>> time_points(missiles.size());
+
+    double stime = 0.0;
+    for (const auto &s : smokes)
+        if (s.start_time > stime)
+            stime = s.start_time;
+    time = std::max(time, stime + 21.0);
 
     while (current_time <= time)
     {
@@ -216,6 +224,22 @@ std::vector<SimulationResult> simulate_cpp(
             time_points[i].push_back(current_time);
         }
         current_time += step;
+    }
+
+    if (debug)
+    {
+        for (size_t i = 0; i < missiles.size(); ++i)
+        {
+            std::ofstream ofs("missile_" + std::to_string(i) + "_debug.txt");
+            for (size_t j = 0; j < blocked_status[i].size(); ++j)
+            {
+                Point pos = missiles[i].getpos(time_points[i][j]);
+                ofs << "Time:\t" << time_points[i][j]
+                    << "\nPos:\t(" << pos.x << "," << pos.y << "," << pos.z
+                    << ")\tBlocked:\t" << blocked_status[i][j] << "\n";
+            }
+            ofs.close();
+        }
     }
 
     // 计算遮挡区间
