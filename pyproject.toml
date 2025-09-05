@@ -8,5 +8,7 @@ dependencies = [
     "matplotlib>=3.10.6",
     "numpy>=2.3.2",
     "pandas>=2.3.2",
+    "pybind11>=3.0.1",
     "scipy>=1.16.1",
+    "setuptools>=80.9.0",
 ]
