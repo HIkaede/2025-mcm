@@ -5,9 +5,13 @@ build/
 dist/
 wheels/
 *.egg-info
+*.png
 
 # Virtual environments
 .venv
 
-#built libraries
+# Built libraries
 *.so
+
+# Vscode settings
+.vscode/

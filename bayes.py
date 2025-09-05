@@ -1,9 +1,11 @@
 from skopt import gp_minimize
 from skopt.space import Real
+from skopt.plots import plot_convergence
 from object import point, missile, drone, smoke
 import libsimulate
 from main import m1, fy_pos, simulate
 import math
+import matplotlib.pyplot as plt
 
 
 def objective_function(params):
@@ -27,6 +29,7 @@ def objective_function(params):
     blocked_time = results["missile_0"]["total_blocked_time"]
     return -blocked_time
 
+
 def bayesian_optimize_problem2():
     """使用贝叶斯优化求解问题2"""
     # 定义搜索空间
@@ -45,10 +48,10 @@ def bayesian_optimize_problem2():
     result = gp_minimize(
         func=objective_function,
         dimensions=dimensions,
-        n_calls=100,
+        n_calls=80,
         n_initial_points=20,
         random_state=42,
-        verbose=True
+        verbose=True,
     )
 
     best_speed, best_angle, best_t, best_delay = result.x
@@ -75,6 +78,45 @@ def bayesian_optimize_problem2():
         f"验证结果 - M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f}秒"
     )
     print(f"遮挡时间段: {results['missile_0']['blocked_intervals']}")
+
+    # 创建子图
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+
+    # 左图：收敛过程
+    plot_convergence(result, ax=ax1)
+    ax1.set_title("Bayesian Optimization Convergence")
+    ax1.set_xlabel("Number of Function Evaluations")
+    ax1.set_ylabel("Objective Function Value (Negative Blocking Time)")
+    ax1.grid(True, alpha=0.3)
+
+    # 右图：参数变化
+    func_vals = result.func_vals
+    evaluations = range(1, len(func_vals) + 1)
+
+    ax2.plot(evaluations, [-val for val in func_vals], "b-", alpha=0.7, linewidth=1)
+    ax2.scatter(evaluations, [-val for val in func_vals], c="red", s=20, alpha=0.6)
+    ax2.set_title("Blocking Time Progress")
+    ax2.set_xlabel("Evaluation Number")
+    ax2.set_ylabel("Blocking Time (seconds)")
+    ax2.grid(True, alpha=0.3)
+
+    # 标记最佳点
+    best_idx = list(func_vals).index(result.fun)
+    ax2.scatter(
+        [best_idx + 1],
+        [best_blocked_time],
+        c="green",
+        s=100,
+        marker="*",
+        label=f"Best: {best_blocked_time:.2f}s",
+        zorder=5,
+    )
+    ax2.legend()
+
+    plt.tight_layout()
+    plt.savefig("bayesian_optimization_convergence.png", dpi=300, bbox_inches="tight")
+    plt.show()
+    print("收敛图已保存为 'bayesian_optimization_convergence.png'")
 
 
 if __name__ == "__main__":
