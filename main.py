@@ -46,10 +46,10 @@ def problem1():
     fy1 = drone(fy_pos[0], point(-120, 0, 0))
     smokes = []
     smokes.append(fy1.drop_smoke(1.5, 3.6))
-    results = simulate(missiles, smokes, 30, 0.01)
+    results = simulate(missiles, smokes, 30, 0.001)
 
     print("问题1结果:")
-    print(f"M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f} 秒")
+    print(f"M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.3f} 秒")
     print(f"遮挡时间段: {results['missile_0']['blocked_intervals']}")
 
 

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <algorithm>
 #include <fstream>
+#include <cstdint>
 
 struct Point
 {
@@ -112,75 +113,70 @@ public:
     }
 };
 
-Point farthest_point_on_circle(const Point &center, double radius, const Point &normal,
-                               const Point &line_point, const Point &line_dir)
-{
-    Point pc = center - line_point;
-    Point line_dir_normalized = line_dir.normalize();
-    double t = pc.dot(line_dir_normalized);
-    Point closest_on_line = line_point + line_dir_normalized * t;
-
-    Point away_from_line = center - closest_on_line;
-
-    if (away_from_line.length() < 1e-10)
-    {
-        Point temp = (std::abs(line_dir_normalized.x) < 0.9) ? Point(1, 0, 0) : Point(0, 1, 0);
-        away_from_line = line_dir_normalized.cross(temp);
-    }
-
-    Point normal_normalized = normal.normalize();
-    double projection_on_normal = away_from_line.dot(normal_normalized);
-    Point away_in_plane = away_from_line - normal_normalized * projection_on_normal;
-
-    if (away_in_plane.length() < 1e-10)
-    {
-        Point temp = (std::abs(normal_normalized.x) < 0.9) ? Point(1, 0, 0) : Point(0, 1, 0);
-        away_in_plane = normal_normalized.cross(temp);
-    }
-
-    Point direction = away_in_plane.normalize();
-    return center + direction * radius;
-}
-
 bool Missile::is_blocked(double t, const std::vector<Smoke> &smoke_list) const
 {
     Point missile_pos = getpos(t);
     Point target_center(0, 200, 5);
-    double target_radius = 7.0;
+    constexpr double target_radius = 7.0;
 
     Point bottom_center(0, 200, 0);
     Point top_center(0, 200, 10);
-    Point normal_z(0, 0, 1);
+
+    constexpr int32_t sample_points = 360;
+    constexpr double angle_step = 2.0 * M_PI / sample_points;
+    constexpr double smoke_radius = 10.0;
+
+    int32_t active_smoke = 0;
+    int32_t blocked_smoke = 0;
 
     for (const auto &smoke : smoke_list)
     {
         if (!smoke.is_active(t))
             continue;
 
-        Point smoke_pos = smoke.getpos(t);
+        active_smoke++;
 
-        double missile_to_target_dist = missile_pos.dist(target_center);
-        double smoke_to_target_dist = smoke_pos.dist(target_center);
+        const Point smoke_pos = smoke.getpos(t);
+
+        // 检查烟幕是否在导弹和目标之间
+        const double missile_to_target_dist = missile_pos.dist(target_center);
+        const double smoke_to_target_dist = smoke_pos.dist(target_center);
         if (smoke_to_target_dist > missile_to_target_dist)
             continue;
 
-        // 检查底部圆
-        Point missile_to_smoke = smoke_pos - missile_pos;
-        Point farthest_bottom = farthest_point_on_circle(
-            bottom_center, target_radius, normal_z, missile_pos, missile_to_smoke);
-        double dist_bottom = smoke_pos.dist2line(missile_pos, farthest_bottom);
-        bool bottom_blocked = dist_bottom <= 10.0;
+        // 采样底部圆周
+        for (size_t i = 0; i < sample_points; ++i)
+        {
+            const double angle = angle_step * i;
+            const Point bottom_point(
+                bottom_center.x + target_radius * cos(angle),
+                bottom_center.y + target_radius * sin(angle),
+                bottom_center.z);
 
-        // 检查顶部圆
-        Point farthest_top = farthest_point_on_circle(
-            top_center, target_radius, normal_z, missile_pos, missile_to_smoke);
-        double dist_top = smoke_pos.dist2line(missile_pos, farthest_top);
-        bool top_blocked = dist_top <= 10.0;
+            // 计算烟幕到导弹-底部点连线的距离
+            const double dist_to_line = smoke_pos.dist2line(missile_pos, bottom_point);
+            if (dist_to_line > smoke_radius)
+                return false;
+        }
 
-        if (bottom_blocked && top_blocked)
-            return true;
+        // 采样顶部圆周
+        for (size_t i = 0; i < sample_points; ++i)
+        {
+            const double angle = angle_step * i;
+            const Point top_point(
+                top_center.x + target_radius * cos(angle),
+                top_center.y + target_radius * sin(angle),
+                top_center.z);
+
+            // 计算烟幕到导弹-顶部点连线的距离
+            double dist_to_line = smoke_pos.dist2line(missile_pos, top_point);
+            if (dist_to_line > smoke_radius)
+                return false;
+        }
+        blocked_smoke++;
     }
-    return false;
+
+    return active_smoke && blocked_smoke;
 }
 
 struct SimulationResult
@@ -212,7 +208,7 @@ std::vector<SimulationResult> simulate_cpp(
     {
         for (size_t i = 0; i < missiles.size(); ++i)
         {
-            bool is_blocked = missiles[i].is_blocked(current_time, smokes);
+            const bool is_blocked = missiles[i].is_blocked(current_time, smokes);
             blocked_status[i].push_back(is_blocked);
             time_points[i].push_back(current_time);
         }
@@ -226,7 +222,7 @@ std::vector<SimulationResult> simulate_cpp(
             std::ofstream ofs("missile_" + std::to_string(i) + "_debug.txt");
             for (size_t j = 0; j < blocked_status[i].size(); ++j)
             {
-                Point pos = missiles[i].getpos(time_points[i][j]);
+                const Point pos = missiles[i].getpos(time_points[i][j]);
                 ofs << "Time:\t" << time_points[i][j]
                     << "\nPos:\t(" << pos.x << "," << pos.y << "," << pos.z
                     << ")\tBlocked:\t" << blocked_status[i][j] << "\n";
