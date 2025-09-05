@@ -1,16 +1,28 @@
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 import pybind11
 from setuptools import setup
+import platform
 
 
-extra_compile_args = [
-    "-O3",
-    "-march=native",
-    "-ffast-math",
-    "-funroll-loops",
-    "-finline-functions",
-]
-extra_link_args = []
+# 根据编译器选择合适的编译参数
+if platform.system() == "Windows":
+    # MSVC 编译器参数
+    extra_compile_args = [
+        "/O2",
+        "/GL",
+        "/arch:AVX2",
+    ]
+    extra_link_args = ["/LTCG"]
+else:
+    # GCC/Clang 编译器参数
+    extra_compile_args = [
+        "-O3",
+        "-march=native",
+        "-ffast-math",
+        "-funroll-loops",
+        "-finline-functions",
+    ]
+    extra_link_args = []
 
 ext_modules = [
     Pybind11Extension(
