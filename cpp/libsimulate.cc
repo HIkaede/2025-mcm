@@ -47,7 +47,7 @@ struct Point
     Point normalize() const
     {
         double l = length();
-        if (l == 0)
+        if (std::abs(l) < 1e-10)
             return Point(0, 0, 0);
         return Point(x / l, y / l, z / l);
     }
@@ -108,8 +108,6 @@ public:
 
     Point getpos(double t) const
     {
-        if (!is_active(t))
-            return Point(0, 0, -1000); // 无效位置标记
         return Point(pos.x, pos.y, pos.z - 3 * (t - start_time));
     }
 };
@@ -166,9 +164,6 @@ bool Missile::is_blocked(double t, const std::vector<Smoke> &smoke_list) const
         if (smoke_to_target_dist > missile_to_target_dist)
             continue;
 
-        if (smoke_pos.z < -999) // 无效位置
-            continue;
-
         // 检查底部圆
         Point missile_to_smoke = smoke_pos - missile_pos;
         Point farthest_bottom = farthest_point_on_circle(
@@ -183,9 +178,7 @@ bool Missile::is_blocked(double t, const std::vector<Smoke> &smoke_list) const
         bool top_blocked = dist_top <= 10.0;
 
         if (bottom_blocked && top_blocked)
-        {
             return true;
-        }
     }
     return false;
 }
