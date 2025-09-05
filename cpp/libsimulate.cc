@@ -91,7 +91,7 @@ public:
             pos.z + v.z * t);
     }
 
-    bool is_blocked(double t, const std::vector<class Smoke> &smoke_list) const;
+    bool is_blocked(double t, bool check_mid, const std::vector<class Smoke> &smoke_list) const;
 };
 
 class Smoke
@@ -113,70 +113,103 @@ public:
     }
 };
 
-bool Missile::is_blocked(double t, const std::vector<Smoke> &smoke_list) const
+bool Missile::is_blocked(double t, bool check_mid, const std::vector<Smoke> &smoke_list) const
 {
     Point missile_pos = getpos(t);
-    Point target_center(0, 200, 5);
+    const Point target_center(0, 200, 5);
     constexpr double target_radius = 7.0;
 
-    Point bottom_center(0, 200, 0);
-    Point top_center(0, 200, 10);
+    const Point bottom_center(0, 200, 0);
+    const Point top_center(0, 200, 10);
 
-    constexpr int32_t sample_points = 360;
+    constexpr int32_t sample_points = 360; // 增加采样密度以提高精度
     constexpr double angle_step = 2.0 * M_PI / sample_points;
     constexpr double smoke_radius = 10.0;
 
-    int32_t active_smoke = 0;
-    int32_t blocked_smoke = 0;
+    // 所有在导弹和目标之间的活跃烟幕
+    std::vector<Point> active_smoke_positions;
+    const double missile_to_target_dist = missile_pos.dist(target_center);
 
     for (const auto &smoke : smoke_list)
     {
         if (!smoke.is_active(t))
             continue;
 
-        active_smoke++;
-
         const Point smoke_pos = smoke.getpos(t);
-
-        // 检查烟幕是否在导弹和目标之间
-        const double missile_to_target_dist = missile_pos.dist(target_center);
         const double smoke_to_target_dist = smoke_pos.dist(target_center);
-        if (smoke_to_target_dist > missile_to_target_dist)
-            continue;
 
-        // 采样底部圆周
-        for (size_t i = 0; i < sample_points; ++i)
+        if (smoke_to_target_dist <= missile_to_target_dist)
         {
-            const double angle = angle_step * i;
-            const Point bottom_point(
-                bottom_center.x + target_radius * cos(angle),
-                bottom_center.y + target_radius * sin(angle),
-                bottom_center.z);
-
-            // 计算烟幕到导弹-底部点连线的距离
-            const double dist_to_line = smoke_pos.dist2line(missile_pos, bottom_point);
-            if (dist_to_line > smoke_radius)
-                return false;
+            active_smoke_positions.push_back(smoke_pos);
         }
-
-        // 采样顶部圆周
-        for (size_t i = 0; i < sample_points; ++i)
-        {
-            const double angle = angle_step * i;
-            const Point top_point(
-                top_center.x + target_radius * cos(angle),
-                top_center.y + target_radius * sin(angle),
-                top_center.z);
-
-            // 计算烟幕到导弹-顶部点连线的距离
-            double dist_to_line = smoke_pos.dist2line(missile_pos, top_point);
-            if (dist_to_line > smoke_radius)
-                return false;
-        }
-        blocked_smoke++;
     }
 
-    return active_smoke && blocked_smoke;
+    if (active_smoke_positions.empty())
+        return false;
+
+    std::vector<Point> target_samples;
+
+    // 采样底部圆周
+    for (size_t i = 0; i < sample_points; ++i)
+    {
+        const double angle = angle_step * i;
+        const Point bottom_point(
+            bottom_center.x + target_radius * cos(angle),
+            bottom_center.y + target_radius * sin(angle),
+            bottom_center.z);
+        target_samples.push_back(bottom_point);
+    }
+
+    // 采样顶部圆周
+    for (size_t i = 0; i < sample_points; ++i)
+    {
+        const double angle = angle_step * i;
+        const Point top_point(
+            top_center.x + target_radius * cos(angle),
+            top_center.y + target_radius * sin(angle),
+            top_center.z);
+        target_samples.push_back(top_point);
+    }
+
+    // 采样中间层圆周
+    if (check_mid)
+    {
+        constexpr int32_t vertical_layers = 5;
+        for (int32_t layer = 1; layer <= vertical_layers; ++layer)
+        {
+            const double z_height = bottom_center.z + (top_center.z - bottom_center.z) * layer / (vertical_layers + 1);
+            for (size_t i = 0; i < sample_points; ++i)
+            {
+                const double angle = angle_step * i;
+                const Point middle_point(
+                    bottom_center.x + target_radius * cos(angle),
+                    bottom_center.y + target_radius * sin(angle),
+                    z_height);
+                target_samples.push_back(middle_point);
+            }
+        }
+    }
+
+    // 检查每个采样点是否被烟幕遮蔽
+    int32_t blocked_samples = 0;
+    for (const auto &sample_point : target_samples)
+    {
+        bool is_sample_blocked = false;
+        for (const auto &smoke_pos : active_smoke_positions)
+        {
+            const double dist_to_line = smoke_pos.dist2line(missile_pos, sample_point);
+            if (dist_to_line <= smoke_radius)
+            {
+                is_sample_blocked = true;
+                break;
+            }
+        }
+        if (is_sample_blocked)
+            blocked_samples++;
+    }
+
+    const int32_t sample_nums = check_mid ? 7 * sample_points : 2 * sample_points;
+    return blocked_samples == sample_nums;
 }
 
 struct SimulationResult
@@ -188,9 +221,8 @@ struct SimulationResult
 std::vector<SimulationResult> simulate_cpp(
     const std::vector<Missile> &missiles,
     const std::vector<Smoke> &smokes,
-    double time,
-    double step,
-    bool debug)
+    bool check_mid,
+    double step)
 {
     std::vector<SimulationResult> results(missiles.size());
 
@@ -198,37 +230,21 @@ std::vector<SimulationResult> simulate_cpp(
     std::vector<std::vector<bool>> blocked_status(missiles.size());
     std::vector<std::vector<double>> time_points(missiles.size());
 
-    double stime = 0.0;
+    double time = 0.0;
     for (const auto &s : smokes)
-        if (s.start_time > stime)
-            stime = s.start_time;
-    time = std::max(time, stime + 21.0);
+        if (s.start_time > time)
+            time = s.start_time;
+    time += 21.0;
 
     while (current_time <= time)
     {
         for (size_t i = 0; i < missiles.size(); ++i)
         {
-            const bool is_blocked = missiles[i].is_blocked(current_time, smokes);
+            const bool is_blocked = missiles[i].is_blocked(current_time, check_mid, smokes);
             blocked_status[i].push_back(is_blocked);
             time_points[i].push_back(current_time);
         }
         current_time += step;
-    }
-
-    if (debug)
-    {
-        for (size_t i = 0; i < missiles.size(); ++i)
-        {
-            std::ofstream ofs("missile_" + std::to_string(i) + "_debug.txt");
-            for (size_t j = 0; j < blocked_status[i].size(); ++j)
-            {
-                const Point pos = missiles[i].getpos(time_points[i][j]);
-                ofs << "Time:\t" << time_points[i][j]
-                    << "\nPos:\t(" << pos.x << "," << pos.y << "," << pos.z
-                    << ")\tBlocked:\t" << blocked_status[i][j] << "\n";
-            }
-            ofs.close();
-        }
     }
 
     // 计算遮挡区间

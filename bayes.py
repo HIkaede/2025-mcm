@@ -22,7 +22,7 @@ def objective_function_problem2(params):
     smokes = []
     smokes.append(fy1.drop_smoke(t, delay))
 
-    results = simulate(missiles, smokes, 30, 0.001)
+    results = simulate(missiles, smokes, False, 0.001)
     blocked_time = results["missile_0"]["total_blocked_time"]
     return -blocked_time
 
@@ -68,7 +68,7 @@ def bayesian_optimize_problem2():
     fy1 = drone(fy_pos[0], v_optimal)
     smokes = []
     smokes.append(fy1.drop_smoke(best_t, best_delay))
-    results = simulate(missiles, smokes, 30, 0.01)
+    results = simulate(missiles, smokes, False, 0.01)
 
     print(
         f"验证结果 - M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f}秒"
@@ -140,7 +140,7 @@ def objective_function_problem3(params):
     smokes.append(fy1.drop_smoke(t2, delay2))
     smokes.append(fy1.drop_smoke(t3, delay3))
 
-    results = simulate(missiles, smokes, 30, 0.001)
+    results = simulate(missiles, smokes, True, 0.001)
     blocked_time = results["missile_0"]["total_blocked_time"]
     return -blocked_time
 
@@ -165,7 +165,7 @@ def bayesian_optimize_problem3():
     result = gp_minimize(
         func=objective_function_problem3,
         dimensions=dimensions,
-        n_calls=250,
+        n_calls=150,
         n_initial_points=40,
         random_state=42,
         verbose=True,
@@ -210,7 +210,7 @@ def bayesian_optimize_problem3():
     smokes.append(fy1.drop_smoke(best_t1, best_delay1))
     smokes.append(fy1.drop_smoke(best_t2, best_delay2))
     smokes.append(fy1.drop_smoke(best_t3, best_delay3))
-    results = simulate(missiles, smokes, 30, 0.01)
+    results = simulate(missiles, smokes, True, 0.01)
 
     print(
         f"\n验证结果 - M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f}秒"

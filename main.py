@@ -2,7 +2,7 @@ from object import point, missile, drone, smoke
 import libsimulate
 
 
-def simulate(missiles, smokes, time, step, debug=False):
+def simulate(missiles, smokes, check_mid, step):
     """使用C++加速的模拟函数"""
     cpp_missiles = []
     for missile_obj in missiles:
@@ -15,7 +15,7 @@ def simulate(missiles, smokes, time, step, debug=False):
         cpp_smokes.append(libsimulate.Smoke(cpp_pos, smoke_obj.start))
 
     # 调用cpp函数
-    cpp_results = libsimulate.simulate_cpp(cpp_missiles, cpp_smokes, time, step, debug)
+    cpp_results = libsimulate.simulate_cpp(cpp_missiles, cpp_smokes, check_mid, step)
 
     results = {}
     for i, cpp_result in enumerate(cpp_results):
@@ -46,7 +46,7 @@ def problem1():
     fy1 = drone(fy_pos[0], point(-120, 0, 0))
     smokes = []
     smokes.append(fy1.drop_smoke(1.5, 3.6))
-    results = simulate(missiles, smokes, 30, 0.001)
+    results = simulate(missiles, smokes, False, 0.001)
 
     print("问题1结果:")
     print(f"M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.3f} 秒")
@@ -58,7 +58,7 @@ def problem2(v, t, delay):
     fy1 = drone(fy_pos[0], v)
     smokes = []
     smokes.append(fy1.drop_smoke(t, delay))
-    results = simulate(missiles, smokes, 30, 0.01)
+    results = simulate(missiles, smokes, False, 0.01)
 
     print("问题2结果:")
     print(f"M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f} 秒")
@@ -71,7 +71,7 @@ def problem3(v, t, delay):
     smokes = []
     for i in range(3):
         smokes.append(fy1.drop_smoke(t[i], delay[i]))
-    results = simulate(missiles, smokes, 30, 0.01)
+    results = simulate(missiles, smokes, True, 0.01)
 
     print("问题3结果:")
     print(f"M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f} 秒")
@@ -86,7 +86,7 @@ def problem4(v, t, delay):
     smokes = []
     for i in range(3):
         smokes.append(fy[i].drop_smoke(t[i], delay[i]))
-    results = simulate(missiles, smokes, 30, 0.01)
+    results = simulate(missiles, smokes, True, 0.01)
 
     print("问题4结果:")
     print(f"M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f} 秒")
@@ -101,7 +101,7 @@ def problem5(v, t, delay):
     smokes = []
     for i in range(3):
         smokes.append(fy[i].drop_smoke(t[i], delay[i]))
-    results = simulate(missiles, smokes, 30, 0.001)
+    results = simulate(missiles, smokes, True, 0.001)
 
     print("问题5结果:")
     print(f"M1被遮挡总时间: {results['missile_0']['total_blocked_time']:.2f} 秒")
