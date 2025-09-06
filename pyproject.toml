@@ -1,10 +1,11 @@
 [project]
 name = "2025-mcm"
 version = "0.1.0"
-description = "Add your description here"
+description = "Code for 2025 MCM Problem A"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "deap>=1.4.3",
     "matplotlib>=3.10.6",
     "pybind11>=3.0.1",
     "scikit-optimize>=0.10.2",
