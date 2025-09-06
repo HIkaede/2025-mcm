@@ -143,9 +143,9 @@ def run_ga_problem3():
     pool = Pool(processes=16)
     toolbox.register("map", pool.map)
 
-    population_size = 500
-    generations = 500
-    cx_prob = 0.65
+    population_size = 100
+    generations = 10000
+    cx_prob = 0.8
     mut_prob = 0.5
 
     print(f"问题3 - 遗传算法参数:")
