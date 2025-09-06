@@ -123,13 +123,13 @@ def mutate_individual(individual, indpb):
                 individual[i] = max(70, min(140, individual[i]))
             elif param_type == 1:  # angle
                 individual[i] += random.gauss(0, 0.3)
-                individual[i] = individual[i] % (2 * math.pi)
+                individual[i] = (individual[i] + 2 * math.pi) % (2 * math.pi)
             elif param_type == 2:  # t
                 individual[i] += random.gauss(0, 0.8)
-                individual[i] = max(0, min(10, individual[i]))  # 增加时间上限
+                individual[i] = max(0, min(20, individual[i]))  # 增加时间上限
             elif param_type == 3:  # delay
                 individual[i] += random.gauss(0, 0.6)
-                individual[i] = max(0, min(8, individual[i]))  # 增加延迟上限
+                individual[i] = max(0, min(20, individual[i]))  # 增加延迟上限
 
     return (individual,)
 
@@ -180,7 +180,6 @@ def run_ga_problem4():
     best_individual = hall_of_fame[0]
     best_fitness = best_individual.fitness.values[0]
 
-    print(f"\n最优解找到!")
     print(f"最大遮挡时间: {best_fitness:.3f} 秒")
 
     # 最优参数

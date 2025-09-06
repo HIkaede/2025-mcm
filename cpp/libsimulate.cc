@@ -122,7 +122,7 @@ bool Missile::is_blocked(double t, bool check_mid, const std::vector<Smoke> &smo
     const Point bottom_center(0, 200, 0);
     const Point top_center(0, 200, 10);
 
-    constexpr int32_t sample_points = 360; // 增加采样密度以提高精度
+    constexpr int32_t sample_points = 360;
     constexpr double angle_step = 2.0 * M_PI / sample_points;
     constexpr double smoke_radius = 10.0;
 
@@ -138,10 +138,11 @@ bool Missile::is_blocked(double t, bool check_mid, const std::vector<Smoke> &smo
         const Point smoke_pos = smoke.getpos(t);
         const double smoke_to_target_dist = smoke_pos.dist(target_center);
 
+        if (smoke_pos.dist(missile_pos) <= smoke_radius)
+            return true;
+
         if (smoke_to_target_dist <= missile_to_target_dist)
-        {
             active_smoke_positions.push_back(smoke_pos);
-        }
     }
 
     if (active_smoke_positions.empty())
