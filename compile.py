@@ -4,7 +4,6 @@ from setuptools import setup
 import platform
 
 
-# 根据编译器选择合适的编译参数
 if platform.system() == "Windows":
     # MSVC 编译器参数
     extra_compile_args = [

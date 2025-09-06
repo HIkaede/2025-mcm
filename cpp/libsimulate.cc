@@ -117,17 +117,89 @@ public:
     }
 };
 
+class SamplePoint
+{
+    std::vector<Point> tb_samples;
+    std::vector<Point> full_samples;
+    bool initialized;
+    static SamplePoint instance;
+
+public:
+    SamplePoint() : initialized(false) {}
+    static SamplePoint &get_instance()
+    {
+        return instance;
+    }
+
+    void initialize()
+    {
+        if (initialized)
+            return;
+
+        const Point bottom_center(0, 200, 0);
+        const Point top_center(0, 200, 10);
+        constexpr double target_radius = 7.0;
+        constexpr int32_t sample_points = 36;
+        constexpr double angle_step = 2.0 * M_PI / sample_points;
+
+        tb_samples.reserve(2 * sample_points);
+        full_samples.reserve(7 * sample_points);
+
+        // 采样底部圆周
+        for (size_t i = 0; i < sample_points; ++i)
+        {
+            const double angle = angle_step * i;
+            const Point bottom_point(
+                bottom_center.x + target_radius * cos(angle),
+                bottom_center.y + target_radius * sin(angle),
+                bottom_center.z);
+            tb_samples.emplace_back(bottom_point);
+            full_samples.emplace_back(bottom_point);
+        }
+
+        // 采样顶部圆周
+        for (size_t i = 0; i < sample_points; ++i)
+        {
+            const double angle = angle_step * i;
+            const Point top_point(
+                top_center.x + target_radius * cos(angle),
+                top_center.y + target_radius * sin(angle),
+                top_center.z);
+            tb_samples.emplace_back(top_point);
+            full_samples.emplace_back(top_point);
+        }
+
+        // 采样中间层圆周
+        constexpr int32_t vertical_layers = 5;
+        for (int32_t layer = 1; layer <= vertical_layers; ++layer)
+        {
+            const double z_height = bottom_center.z + (top_center.z - bottom_center.z) * layer / (vertical_layers + 1);
+            for (size_t i = 0; i < sample_points; ++i)
+            {
+                const double angle = angle_step * i;
+                const Point middle_point(
+                    bottom_center.x + target_radius * cos(angle),
+                    bottom_center.y + target_radius * sin(angle),
+                    z_height);
+                full_samples.emplace_back(middle_point);
+            }
+        }
+
+        initialized = true;
+    }
+    const std::vector<Point> &getSamples(bool check_mid) const { return check_mid ? full_samples : tb_samples; }
+    size_t getTotalSampleCount(bool check_mid) const
+    {
+        return check_mid ? full_samples.size() : tb_samples.size();
+    }
+};
+
+SamplePoint SamplePoint::instance;
+
 bool Missile::is_blocked(double t, bool check_mid, const std::vector<Smoke> &smoke_list) const
 {
     Point missile_pos = getpos(t);
     const Point target_center(0, 200, 5);
-    constexpr double target_radius = 7.0;
-
-    const Point bottom_center(0, 200, 0);
-    const Point top_center(0, 200, 10);
-
-    constexpr int32_t sample_points = 360;
-    constexpr double angle_step = 2.0 * M_PI / sample_points;
     constexpr double smoke_radius = 10.0;
 
     // 所有在导弹和目标之间的活跃烟幕
@@ -152,52 +224,12 @@ bool Missile::is_blocked(double t, bool check_mid, const std::vector<Smoke> &smo
     if (active_smoke_positions.empty())
         return false;
 
-    std::vector<Point> target_samples;
-
-    // 采样底部圆周
-    for (size_t i = 0; i < sample_points; ++i)
-    {
-        const double angle = angle_step * i;
-        const Point bottom_point(
-            bottom_center.x + target_radius * cos(angle),
-            bottom_center.y + target_radius * sin(angle),
-            bottom_center.z);
-        target_samples.push_back(bottom_point);
-    }
-
-    // 采样顶部圆周
-    for (size_t i = 0; i < sample_points; ++i)
-    {
-        const double angle = angle_step * i;
-        const Point top_point(
-            top_center.x + target_radius * cos(angle),
-            top_center.y + target_radius * sin(angle),
-            top_center.z);
-        target_samples.push_back(top_point);
-    }
-
-    // 采样中间层圆周
-    if (check_mid)
-    {
-        constexpr int32_t vertical_layers = 5;
-        for (int32_t layer = 1; layer <= vertical_layers; ++layer)
-        {
-            const double z_height = bottom_center.z + (top_center.z - bottom_center.z) * layer / (vertical_layers + 1);
-            for (size_t i = 0; i < sample_points; ++i)
-            {
-                const double angle = angle_step * i;
-                const Point middle_point(
-                    bottom_center.x + target_radius * cos(angle),
-                    bottom_center.y + target_radius * sin(angle),
-                    z_height);
-                target_samples.push_back(middle_point);
-            }
-        }
-    }
+    SamplePoint &samples = SamplePoint::get_instance();
+    samples.initialize();
 
     // 检查每个采样点是否被烟幕遮蔽
-    int32_t blocked_samples = 0;
-    for (const auto &sample_point : target_samples)
+    size_t blocked_samples = 0;
+    for (const auto &sample_point : samples.getSamples(check_mid))
     {
         bool is_sample_blocked = false;
         for (const auto &smoke_pos : active_smoke_positions)
@@ -213,8 +245,7 @@ bool Missile::is_blocked(double t, bool check_mid, const std::vector<Smoke> &smo
             blocked_samples++;
     }
 
-    const int32_t sample_nums = check_mid ? 7 * sample_points : 2 * sample_points;
-    return blocked_samples == sample_nums;
+    return blocked_samples == samples.getTotalSampleCount(check_mid);
 }
 
 struct SimulationResult
