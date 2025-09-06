@@ -12,6 +12,7 @@ wheels/
 
 # Built libraries
 *.so
+*.pyd
 
 # Vscode settings
 .vscode/
